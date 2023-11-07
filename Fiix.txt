@@ -1,0 +1,359 @@
+from numpy import genfromtxt
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+energy = genfromtxt('energy.csv', delimiter=',')
+nuclear=0.15 #kw per capita
+hydro=20 #kw per km2
+inv=1000 #euros per capita
+cpm=6500000 #euros per mill
+cpsp=110 #euros per solar panel
+numberd=4 #number of dams
+population=7848000 #people
+area=44889 #km2 44889
+tinv=inv*population
+winds= genfromtxt('Wind speed.csv', delimiter=',')
+h2=140
+h1=50
+z0=1.6
+ln1=np.log(h2/z0)
+ln2=np.log(h1/z0)
+cutin=3 #m/s
+cutout=27 #m/s
+wtratedpower=5000 #kw
+windsco=winds*(ln1/ln2)
+rho=1.225 #kg/m3
+storagev=13000000 #m3 per dam
+volumecap=storagev*numberd
+energyp=energy*population
+startingpercentage=0.5
+qt = 30  # m3/s
+qp = 26  # m3/s
+height = 762.5  # m
+turbinecap=201900
+pumpcap=226950
+
+#Hydrorun
+hydrorun =[hydro*area]*8784 #kWh
+
+#Nuclear power
+nup=nuclear*population
+nupv=[nup]*8784 #kWh
+
+# #Wind power
+cps=[]
+for b in windsco:
+    if b<cutin or b>=cutout:
+        cp=0
+    elif b>13 and b<cutout:
+        cp=0.149388
+    else:
+        cp = -0.0084 * b ** 2 + 0.1332 * b - 0.0491
+    cps.append(cp)
+windpowerss = (0.5 * rho * area * windsco**3 * cps) / 1000 #kWh
+windpower=[]
+for c in windpowerss:
+    if c>wtratedpower:
+        x=wtratedpower
+    else:
+        x=c
+    windpower.append(x)
+#solar power
+pvsurface=0.82 #m2
+powerpeak=110 #W
+pvefficiency=(powerpeak/(1000*pvsurface)) #powerpeak/(1000*pvsurface)
+inverterefficiency=0.96
+solarir= genfromtxt('solarir.csv', delimiter=',')
+zenith= genfromtxt('Zenith.csv', delimiter=',')
+solars=[]
+for j,k in zip(zenith,solarir):
+    if j < 5 or j > 85: #min and max zenith angle
+        s = 0
+    else:
+        s = ((k * pvsurface * pvefficiency * inverterefficiency)/math.sin(j*(math.pi/180)))/1000
+    solars.append(s)
+# #economics
+percentagewt=0.8023
+percentagesol=1-percentagewt
+numberwt=(tinv*percentagewt)/cpm
+numberpv=(tinv*percentagesol)/cpsp
+totalsolar=[]
+for x in solars:
+    totalsol=(x*numberpv)
+    totalsolar.append(totalsol)
+totalwind=[]
+for x in windpower:
+    totalwd=(x*numberwt)
+    totalwind.append(totalwd) #kWh
+total1=totalwind+totalsolar+nupv+hydrorun
+volumediff=0
+volume=numberd*storagev*startingpercentage
+hydrogen=[]
+finalvolume=[]
+hydroconsu=[]
+sobra=[]
+totalccpp=[]
+hydroout=0
+ccpp=0
+hydroconsumed=0
+waste=0
+#hydro and evaluation
+for (i1,i2,i3,i4,i5) in zip(totalwind,totalsolar,nupv,hydrorun,energyp):
+    x=i1+i2+i3+i4-i5
+    volume= volume+ volumediff
+    if x<0 and volume>0:
+        time1 = -(x /turbinecap)
+        if 0<=time1<=1 and volume<=108000:
+            volumeout=time1*3600*qt
+            hydroout=-x
+            volumein=0
+            ccpp = 0
+            hydroconsumed = 0
+            waste = 0
+            if volumeout<=volume:
+                hydroout = -x
+                volumein = 0
+                ccpp = 0
+                hydroconsumed = 0
+                waste = 0
+            else:
+                volumeout=volume
+                hydroout = (volumeout * turbinecap) / (3600 * qt)
+                ccpp = -x
+                waste = 0
+        elif 0<=time1<=1 and volume>108000:
+                volumeout = time1 * 3600 * qt
+                hydroout = -x
+                volumein = 0
+                ccpp = 0
+                hydroconsumed = 0
+                waste = 0
+        elif 1<time1<=2 and volume<=216000:
+            volumeout = (1+time1-1) * 3600 * qt
+            hydroout = -x
+            volumein = 0
+            ccpp = 0
+            hydroconsumed = 0
+            waste = 0
+            if volumeout <= volume:
+                hydroout = -x
+                volumein = 0
+                ccpp = 0
+                hydroconsumed = 0
+                waste = 0
+            else:
+                volumeout = volume
+                hydroout = (volumeout * turbinecap) / (3600 * qt)
+                ccpp = -(x + hydroout)
+                waste = 0
+        elif 1<time1<=2 and volume>216000:
+            volumeout = (1+time1-1)* 3600 * qt
+            hydroout = -x
+            volumein = 0
+            ccpp = 0
+            hydroconsumed = 0
+            waste = 0
+        elif 2<time1<=3 and volume<=324000:
+            volumeout = (2 + time1 - 2) * 3600 * qt
+            hydroout = -x
+            volumein = 0
+            ccpp = 0
+            hydroconsumed = 0
+            waste = 0
+            if volumeout <= volume:
+                hydroout = -x
+                volumein = 0
+                ccpp = 0
+                hydroconsumed = 0
+                waste = 0
+            else:
+                volumeout = volume
+                hydroout = (volumeout * turbinecap) / (3600 * qt)
+                ccpp = -(x + hydroout)
+                waste = 0
+        elif 2<time1<=3 and volume>324000:
+            volumeout = (2 + time1 - 2) * 3600 * qt
+            hydroout = -x
+            volumein = 0
+            ccpp = 0
+            hydroconsumed = 0
+            waste = 0
+        elif 3<time1<=4 and volume<=432000:
+            volumeout = (3 + time1 - 3) * 3600 * qt
+            hydroout = -x
+            volumein = 0
+            ccpp = 0
+            hydroconsumed = 0
+            waste = 0
+            if volumeout <= volume:
+                hydroout = -x
+                volumein = 0
+                ccpp = 0
+                hydroconsumed = 0
+                waste = 0
+            else:
+                volumeout = volume
+                hydroout = (volumeout * turbinecap) / (3600 * qt)
+                ccpp = -(x + hydroout)
+                waste = 0
+        elif 3<time1<=4 and volume>432000:
+            volumeout = (3 + time1 - 3) * 3600 * qt
+            hydroout = -x
+            volumein = 0
+            ccpp = 0
+            hydroconsumed = 0
+            waste = 0
+        elif time1>4 and volume<=432000:
+            volumeout = 4 * 3600 * qt
+            hydroout = 4 * turbinecap
+            volumein = 0
+            ccpp = -(x+hydroout)
+            hydroconsumed = 0
+            waste = 0
+            if volumeout <= volume:
+                hydroout = 4 * turbinecap
+                volumein = 0
+                ccpp = -(x+hydroout)
+                hydroconsumed = 0
+                waste = 0
+            else:
+                volumeout = volume
+                hydroout = (volumeout * turbinecap) / (3600 * qt)
+                ccpp = -(x + hydroout)
+                waste = 0
+        elif time1>4 and volume>432000:
+            volumeout = 4 * 3600 * qt
+            hydroout = 4 * turbinecap
+            volumein = 0
+            ccpp = -(x + hydroout)
+            hydroconsumed = 0
+            waste = 0
+    elif x<0 and volume<=0:
+        volume=0
+        ccpp=-x
+        volumeout=0
+        volumein=0
+        hydroout=0
+        hydroconsumed=0
+        waste = 0
+    elif x>=0 and volume>0:
+        time1=x/pumpcap
+        if 0<=time1<=1 and volume<volumecap:
+            volumein = time1 * 3600 * qp
+            hydroconsumed = x
+            volumeout = 0
+            ccpp = 0
+            hydroout = 0
+            waste = 0
+            if volume+volumein>=volumecap:
+                volume==volumecap
+                volumein=0
+            else:
+                volume == volume
+                volumein=volumein
+        elif 1 <= time1 <= 2 and volume < volumecap:
+            volumein = time1 * 3600 * qp
+            hydroconsumed = x
+            volumeout = 0
+            ccpp = 0
+            hydroout = 0
+            waste = 0
+            if volume + volumein > volumecap:
+                volume == volumecap
+                volumein=0
+            else:
+                volume == volume
+                volumein = volumein
+        elif 2 <= time1 <= 3 and volume < volumecap:
+            volumein = time1 * 3600 * qp
+            hydroconsumed = x
+            volumeout = 0
+            ccpp = 0
+            hydroout = 0
+            waste = 0
+            if volume + volumein > volumecap:
+                volume == volumecap
+                volumein=0
+            else:
+                volume == volume
+                volumein = volumein
+        elif 3 <= time1 <= 4 and volume < volumecap:
+            volumein = time1 * 3600 * qp
+            hydroconsumed = x
+            volumeout = 0
+            ccpp = 0
+            hydroout = 0
+            waste = 0
+            if volume + volumein > volumecap:
+                volume == volumecap
+                volumein=0
+            else:
+                volume==volume
+                volumein = volumein
+        elif time1>4 and volume<volumecap:
+            volumein = 4 * 3600 * qp
+            hydroconsumed = 4 * pumpcap
+            volumeout = 0
+            waste = x-hydroconsumed
+            hydroout = 0
+            ccpp=0
+            if volume + volumein > volumecap:
+                volume == volumecap
+                volumein=0
+            else:
+                volume==volume
+                volumein = volumein
+    elif x>=0 and volume<=0:
+        volume=0
+        volumein = time1 * 3600 * qp
+        hydroconsumed = x
+        volumeout = 0
+        ccpp = 0
+        hydroout = 0
+        waste = 0
+        if time1<4:
+            volumein = time1 * 3600 * qp
+            hydroconsumed = x
+            waste = 0
+        else:
+            volumein = 4 * 3600 * qp
+            hydroconsumed = pumpcap * 4
+            waste = 0
+    volumediff =volumein - volumeout
+    hydrogen.append(hydroout)
+    totalccpp.append(ccpp)
+    finalvolume.append(volume)
+    hydroconsu.append(hydroconsumed)
+    sobra.append(waste)
+total=[]
+for (i1,i2,i3,i4,i5,i6,i7) in zip(totalwind,totalsolar,nupv,hydrorun,hydrogen,totalccpp,energyp):
+    total.append(i1+i2+i3+i4+i5+i6-i7) #kWh
+totalenergy=[]
+for (i1,i2,i3,i4,i5,i6) in zip(totalwind,totalsolar,nupv,hydrorun,hydrogen,totalccpp):
+    totalenergy.append(i1+i2+i3+i4+i5+i6)
+actualpower=sum(totalccpp)
+ratedpower=(max(totalccpp)*8784)
+loadfactor=(actualpower/ratedpower)*100
+thermalenergy=(sum(totalccpp)/0.5) #random efficiency
+kgofng=thermalenergy/13.1 #LHV natural gas in KWh/kg
+tcoeq=(kgofng*30)/1000 #methane GWP factor #tco2 eq
+co2eq=tcoeq/(sum(totalenergy)/1000) #kg/kWh
+print(totalwind[0],totalsolar[0],nupv[0],hydrorun[0],hydrogen[0],totalccpp[0])
+ff=(totalwind[0]+totalsolar[0]+nupv[0]+hydrorun[0]+hydrogen[0]+totalccpp[0])
+print(ff-hydroconsu[0])
+print(energyp[0])
+# liste=energyp.tolist()
+# energypp=energyp/1000
+# t=list(range(1,8785))
+# plt.plot(t,energypp)
+# plt.ylabel("kW")
+# plt.xlabel("Hours")
+# plt.show()
+# divisor=1000
+# totalww=[divmod(x,divisor)[0] for x in totalwind]
+# totalsolar
+# energy1=totalwind+totalsolar
+# plt.plot(t,totalww)
+# plt.ylabel("kW")
+# plt.xlabel("Hours")
+# plt.show()
